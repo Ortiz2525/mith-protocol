@@ -8,7 +8,11 @@ interface IStrategy {
 
     function want() external view returns (address);
 
-    function timelock() external view returns (address);
+    function initiator() external view returns (address);
+
+    function stakingContract() external view returns (address);
+
+    function treasury() external view returns (address);
 
     function deposit() external;
 
@@ -24,11 +28,15 @@ interface IStrategy {
 
     function balanceOf() external view returns (uint256);
 
+    function getHarvestable() external view returns (uint256);
+
     function harvest() external;
 
-    function setTimelock(address) external;
+    function setJar(address _jar) external;
+    
+    function setInitiator(address _initiator) external;
 
-    function setController(address _controller) external;
+    function setStakingContract(address _stakingContract) external;
 
     function execute(address _target, bytes calldata _data)
         external

@@ -1,8 +1,6 @@
-# Pickle Protocol
+# Mith Protocol
 
-[![circleci](https://circleci.com/gh/pickle-finance/protocol.svg?style=svg)](https://circleci.com/gh/pickle-finance/protocol)
-
-Solidity files relating to the PICKLE protocol.
+Solidity files relating to the MITH protocol.
 
 ## Getting Started
 
@@ -17,8 +15,6 @@ curl https://dapp.tools/install | sh
 ```
 
 ```bash
-git clone git@github.com:pickle-finance/protocol.git
-cd protocol
 dapp update
 dapp build
 ```
@@ -46,18 +42,4 @@ DAPP_TEST_NUMBER=$(seth block-number) DAPP_TEST_TIMESTAMP=$(date +%s) DAPP_TEST_
 hevm flatten --source-file src/<sol> --json-file out/dapp.sol.json
 
 # Deploy file via remix
-```
-
-### Via JavaScript
-```bash
-export SOLC_FLAGS="--optimize --optimize-runs 200"
-
-dapp build
-
-# Export keys
-export DEPLOYER_PRIVATE_KEY=<PRIVATE_KEY>
-export PROVIDER_URL=<RPC_URL>
-
-# You'll need to edit the deploy.js to fit your needs
-node scripts/deploy.js
 ```

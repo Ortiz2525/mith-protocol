@@ -6,25 +6,23 @@ import "../lib/test-approx.sol";
 import "../lib/test-sushi-base.sol";
 
 import "../../interfaces/strategy.sol";
-import "../../interfaces/curve.sol";
 import "../../interfaces/uniswapv2.sol";
 
-import "../../pickle-jar.sol";
-import "../../controller-v4.sol";
+import "../../mith-jar.sol";
 
 contract StrategyMithFarmTestBase is DSTestSushiBase {
     address want;
     address token1;
 
-    address governance;
     address strategist;
-    address timelock;
 
-    address devfund;
-    address treasury;
+    address mis = 0x4b4D2e899658FB59b1D518b68fe836B100ee8958;
 
-    PickleJar pickleJar;
-    ControllerV4 controller;
+    uint256 performanceInitiatorFee = 75;
+    uint256 performanceStrategistFee = 225;
+    uint256 stakingContractFee = 1200;
+
+    MithJar mithJar;
     IStrategy strategy;
 
     function _getWant(uint256 usdtAmount, uint256 amount) internal {
@@ -34,7 +32,7 @@ contract StrategyMithFarmTestBase is DSTestSushiBase {
         path[2] = token1;
 
         _getERC20(usdt, usdtAmount);
-        _getERC20WithPath(token1, amount, path);
+        _getERC20WithPath(amount, path);
 
         uint256 _usdt = IERC20(usdt).balanceOf(address(this));
         uint256 _token1 = IERC20(token1).balanceOf(address(this));
@@ -59,31 +57,20 @@ contract StrategyMithFarmTestBase is DSTestSushiBase {
 
     // **** Tests ****
 
-    function _test_timelock() internal {
-        assertTrue(strategy.timelock() == timelock);
-        strategy.setTimelock(address(1));
-        assertTrue(strategy.timelock() == address(1));
-    }
-
     function _test_withdraw_release() internal {
         uint256 decimals = ERC20(token1).decimals();
         _getWant(10000 * 10 ** 6, 4000 * (10**decimals)); // USDT decimals is 6
         uint256 _want = IERC20(want).balanceOf(address(this));
-        IERC20(want).safeApprove(address(pickleJar), 0);
-        IERC20(want).safeApprove(address(pickleJar), _want);
-        pickleJar.deposit(_want);
-        pickleJar.earn();
+        IERC20(want).safeApprove(address(mithJar), 0);
+        IERC20(want).safeApprove(address(mithJar), _want);
+        mithJar.deposit(_want);
+        mithJar.earn();
         hevm.warp(block.timestamp + 1 weeks);
         strategy.harvest();
 
-        // Checking withdraw
-        uint256 _before = IERC20(want).balanceOf(address(pickleJar));
-        controller.withdrawAll(want);
-        uint256 _after = IERC20(want).balanceOf(address(pickleJar));
-        assertTrue(_after > _before);
-        _before = IERC20(want).balanceOf(address(this));
-        pickleJar.withdrawAll();
-        _after = IERC20(want).balanceOf(address(this));
+        uint256 _before = IERC20(want).balanceOf(address(this));
+        mithJar.withdrawAll();
+        uint256 _after = IERC20(want).balanceOf(address(this));
         assertTrue(_after > _before);
 
         // Check if we gained interest
@@ -94,40 +81,54 @@ contract StrategyMithFarmTestBase is DSTestSushiBase {
         uint256 decimals = ERC20(token1).decimals();
         _getWant(10000 * 10 ** 6, 4000 * (10**decimals)); // USDT decimals is 6
         uint256 _want = IERC20(want).balanceOf(address(this));
-        IERC20(want).safeApprove(address(pickleJar), 0);
-        IERC20(want).safeApprove(address(pickleJar), _want);
-        pickleJar.deposit(_want);
-        pickleJar.earn();
+        IERC20(want).safeApprove(address(mithJar), 0);
+        IERC20(want).safeApprove(address(mithJar), _want);
+        mithJar.deposit(_want);
+        mithJar.earn();
         hevm.warp(block.timestamp + 1 weeks);
 
         // Call the harvest function
-        uint256 _before = pickleJar.balance();
-        uint256 _treasuryBefore = IERC20(want).balanceOf(treasury);
+        uint256 _before = mithJar.balance();
+        uint256 _strategistBefore = IERC20(want).balanceOf(strategist);
+        uint256 _initiatorBefore = IERC20(want).balanceOf(strategy.initiator());
+
+        uint256 _stakingContractBefore;
+        if (strategy.stakingContract() != address(0)) {
+            _stakingContractBefore = IERC20(mis).balanceOf(strategy.stakingContract());
+        } else {
+            _stakingContractBefore = IERC20(mis).balanceOf(strategy.treasury());
+        }
+
+        uint256 misRewards = strategy.getHarvestable();
         strategy.harvest();
-        uint256 _after = pickleJar.balance();
-        uint256 _treasuryAfter = IERC20(want).balanceOf(treasury);
 
-        uint256 earned = _after.sub(_before).mul(1000).div(800);
-        uint256 earnedRewards = earned.mul(200).div(1000); // 20%
-        uint256 actualRewardsEarned = _treasuryAfter.sub(_treasuryBefore);
+        uint256 _after = mithJar.balance();
+        uint256 _strategistAfter = IERC20(want).balanceOf(strategist);
+        uint256 _initiatorAfter = IERC20(want).balanceOf(strategy.initiator());
+        
+        uint256 _stakingContractAfter;
+        if (strategy.stakingContract() != address(0)) {
+            _stakingContractAfter = IERC20(mis).balanceOf(strategy.stakingContract());
+        } else {
+            _stakingContractAfter = IERC20(mis).balanceOf(strategy.treasury());
+        }
 
-        // 20% performance fee is given
-        assertEqApprox(earnedRewards, actualRewardsEarned);
+        uint256 earned = _after.sub(_before).mul(1000).div(850);
+        uint256 strategistRewards = earned.mul(performanceStrategistFee).div(10000); // 2.25%
+        uint256 initiatorRewards = earned.mul(performanceInitiatorFee).div(10000); // 0.75%
+        uint256 stakingContractRewards = misRewards.mul(stakingContractFee).div(10000); // 12%
 
-        // Withdraw
-        uint256 _devBefore = IERC20(want).balanceOf(devfund);
-        _treasuryBefore = IERC20(want).balanceOf(treasury);
-        uint256 _stratBal = strategy.balanceOf();
-        pickleJar.withdrawAll();
-        uint256 _devAfter = IERC20(want).balanceOf(devfund);
-        _treasuryAfter = IERC20(want).balanceOf(treasury);
+        uint256 strategistRewardsEarned = _strategistAfter.sub(_strategistBefore);
+        uint256 initiatorRewardsEarned = _initiatorAfter.sub(_initiatorBefore);
+        uint256 stakingContractRewardsEarned = _stakingContractAfter.sub(_stakingContractBefore);
 
-        // 0% goes to dev
-        uint256 _devFund = _devAfter.sub(_devBefore);
-        assertEq(_devFund, 0);
+        // 2.25% strategist fee is given
+        assertEqApprox(strategistRewards, strategistRewardsEarned);
 
-        // 0% goes to treasury
-        uint256 _treasuryFund = _treasuryAfter.sub(_treasuryBefore);
-        assertEq(_treasuryFund, 0);
+        // 0.75% initiator fee is given
+        assertEqApprox(initiatorRewards, initiatorRewardsEarned);
+
+        // 12% goes to staking contract
+        assertEqApprox(stakingContractRewards, stakingContractRewardsEarned);
     }
 }

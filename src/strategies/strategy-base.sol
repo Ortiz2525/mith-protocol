@@ -5,9 +5,7 @@ import "../lib/safe-math.sol";
 
 import "../interfaces/jar.sol";
 import "../interfaces/staking-rewards.sol";
-import "../interfaces/masterchef.sol";
 import "../interfaces/uniswapv2.sol";
-import "../interfaces/controller.sol";
 
 // Strategy Contract Basics
 
@@ -16,31 +14,25 @@ abstract contract StrategyBase {
     using Address for address;
     using SafeMath for uint256;
 
-    // Perfomance fees - start with 20%
-    uint256 public performanceTreasuryFee = 2000;
-    uint256 public constant performanceTreasuryMax = 10000;
+    // Performance Fee addresses and staking contract address
+    address public initiator = 0x864C8ef839DD3859820BC6BcE450Aee43F938178;
+    address public stakingContract;
+    address public treasury = 0x47bF82f8493d311a57BfeaBA9a71dEf8182112eA;
 
-    uint256 public performanceDevFee = 0;
-    uint256 public constant performanceDevMax = 10000;
+    // Performance fees - start with 3%
+    uint256 public performanceInitiatorFee = 75;
+    uint256 public constant performanceInitiatorMax = 8800;
 
-    // Withdrawal fee 0%
-    // - 0% to treasury
-    // - 0% to dev fund
-    uint256 public withdrawalTreasuryFee = 0;
-    uint256 public constant withdrawalTreasuryMax = 100000;
-
-    uint256 public withdrawalDevFundFee = 0;
-    uint256 public constant withdrawalDevFundMax = 100000;
+    uint256 public performanceStrategistFee = 225;
+    uint256 public constant performanceStrategistMax = 8800;
 
     // Tokens
     address public want;
     address public constant weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     // User accounts
-    address public governance;
-    address public controller;
     address public strategist;
-    address public timelock;
+    address public jar;
 
     // Dex
     address public univ2Router2 = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
@@ -48,31 +40,20 @@ abstract contract StrategyBase {
 
     constructor(
         address _want,
-        address _governance,
-        address _strategist,
-        address _controller,
-        address _timelock
+        address _strategist
     ) public {
         require(_want != address(0));
-        require(_governance != address(0));
         require(_strategist != address(0));
-        require(_controller != address(0));
-        require(_timelock != address(0));
 
         want = _want;
-        governance = _governance;
         strategist = _strategist;
-        controller = _controller;
-        timelock = _timelock;
     }
 
     // **** Modifiers **** //
 
     modifier onlyBenevolent {
         require(
-            msg.sender == tx.origin ||
-                msg.sender == governance ||
-                msg.sender == strategist
+            msg.sender == tx.origin || msg.sender == strategist
         );
         _;
     }
@@ -85,6 +66,8 @@ abstract contract StrategyBase {
 
     function balanceOfPool() public virtual view returns (uint256);
 
+    function getHarvestable() external virtual view returns (uint256);
+
     function balanceOf() public view returns (uint256) {
         return balanceOfWant().add(balanceOfPool());
     }
@@ -93,85 +76,44 @@ abstract contract StrategyBase {
 
     // **** Setters **** //
 
-    function setWithdrawalDevFundFee(uint256 _withdrawalDevFundFee) external {
-        require(msg.sender == timelock, "!timelock");
-        withdrawalDevFundFee = _withdrawalDevFundFee;
+    function setInitiator(address _initiator) external {
+        require(msg.sender == initiator, "!initiator");
+        initiator = _initiator;
     }
 
-    function setWithdrawalTreasuryFee(uint256 _withdrawalTreasuryFee) external {
-        require(msg.sender == timelock, "!timelock");
-        withdrawalTreasuryFee = _withdrawalTreasuryFee;
+    function setStakingContract(address _stakingContract) external {
+        require(msg.sender == strategist, "!strategist");
+        require(stakingContract == address(0), "Staking Contract already set");
+        stakingContract = _stakingContract;
     }
 
-    function setPerformanceDevFee(uint256 _performanceDevFee) external {
-        require(msg.sender == timelock, "!timelock");
-        performanceDevFee = _performanceDevFee;
-    }
-
-    function setPerformanceTreasuryFee(uint256 _performanceTreasuryFee)
-        external
-    {
-        require(msg.sender == timelock, "!timelock");
-        performanceTreasuryFee = _performanceTreasuryFee;
-    }
-
-    function setStrategist(address _strategist) external {
-        require(msg.sender == governance, "!governance");
-        strategist = _strategist;
-    }
-
-    function setGovernance(address _governance) external {
-        require(msg.sender == governance, "!governance");
-        governance = _governance;
-    }
-
-    function setTimelock(address _timelock) external {
-        require(msg.sender == timelock, "!timelock");
-        timelock = _timelock;
-    }
-
-    function setController(address _controller) external {
-        require(msg.sender == timelock, "!timelock");
-        controller = _controller;
+    function setJar(address _jar) external {
+        require(msg.sender == strategist, "!strategist");
+        require(jar == address(0), "jar already set");
+        jar = _jar;
     }
 
     // **** State mutations **** //
     function deposit() public virtual;
 
-    // Controller only function for creating additional rewards from dust
+    // Jar only function for creating additional rewards from dust
     function withdraw(IERC20 _asset) external returns (uint256 balance) {
-        require(msg.sender == controller, "!controller");
+        require(msg.sender == jar, "!jar");
         require(want != address(_asset), "want");
         balance = _asset.balanceOf(address(this));
-        _asset.safeTransfer(controller, balance);
+        _asset.safeTransfer(jar, balance);
     }
 
     // Withdraw partial funds, normally used with a jar withdrawal
     function withdraw(uint256 _amount) external {
-        require(msg.sender == controller, "!controller");
+        require(msg.sender == jar, "!jar");
         uint256 _balance = IERC20(want).balanceOf(address(this));
         if (_balance < _amount) {
             _amount = _withdrawSome(_amount.sub(_balance));
             _amount = _amount.add(_balance);
         }
 
-        uint256 _feeDev = _amount.mul(withdrawalDevFundFee).div(
-            withdrawalDevFundMax
-        );
-        IERC20(want).safeTransfer(IController(controller).devfund(), _feeDev);
-
-        uint256 _feeTreasury = _amount.mul(withdrawalTreasuryFee).div(
-            withdrawalTreasuryMax
-        );
-        IERC20(want).safeTransfer(
-            IController(controller).treasury(),
-            _feeTreasury
-        );
-
-        address _jar = IController(controller).jars(address(want));
-        require(_jar != address(0), "!jar"); // additional protection so we don't burn the funds
-
-        IERC20(want).safeTransfer(_jar, _amount.sub(_feeDev).sub(_feeTreasury));
+        IERC20(want).safeTransfer(jar, _amount);
     }
 
     // Withdraw funds, used to swap between strategies
@@ -179,26 +121,12 @@ abstract contract StrategyBase {
         external
         returns (uint256 balance)
     {
-        require(msg.sender == controller, "!controller");
+        require(msg.sender == jar, "!jar");
         _withdrawSome(_amount);
 
         balance = IERC20(want).balanceOf(address(this));
 
-        address _jar = IController(controller).jars(address(want));
-        require(_jar != address(0), "!jar");
-        IERC20(want).safeTransfer(_jar, balance);
-    }
-
-    // Withdraw all funds, normally used when migrating strategies
-    function withdrawAll() external returns (uint256 balance) {
-        require(msg.sender == controller, "!controller");
-        _withdrawAll();
-
-        balance = IERC20(want).balanceOf(address(this));
-
-        address _jar = IController(controller).jars(address(want));
-        require(_jar != address(0), "!jar"); // additional protection so we don't burn the funds
-        IERC20(want).safeTransfer(_jar, balance);
+        IERC20(want).safeTransfer(jar, balance);
     }
 
     function _withdrawAll() internal {
@@ -216,7 +144,7 @@ abstract contract StrategyBase {
         payable
         returns (bytes memory response)
     {
-        require(msg.sender == timelock, "!timelock");
+        require(msg.sender == strategist, "!strategist");
         require(_target != address(0), "!target");
 
         // call contract in current context
@@ -356,16 +284,16 @@ abstract contract StrategyBase {
         uint256 _want = IERC20(want).balanceOf(address(this));
 
         if (_want > 0) {
-            // Treasury fees
+            // Initiator fee
             IERC20(want).safeTransfer(
-                IController(controller).treasury(),
-                _want.mul(performanceTreasuryFee).div(performanceTreasuryMax)
+                initiator,
+                _want.mul(performanceInitiatorFee).div(performanceInitiatorMax)
             );
 
-            // Performance fee
+            // Strategist fee
             IERC20(want).safeTransfer(
-                IController(controller).devfund(),
-                _want.mul(performanceDevFee).div(performanceDevMax)
+                strategist,
+                _want.mul(performanceStrategistFee).div(performanceStrategistMax)
             );
 
             deposit();

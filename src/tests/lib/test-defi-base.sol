@@ -10,19 +10,16 @@ import "./test-approx.sol";
 import "../../interfaces/usdt.sol";
 import "../../interfaces/weth.sol";
 import "../../interfaces/strategy.sol";
-import "../../interfaces/curve.sol";
 import "../../interfaces/uniswapv2.sol";
 
 contract DSTestDefiBase is DSTestApprox {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
-    address pickle = 0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5;
     address burn = 0x000000000000000000000000000000000000dEaD;
 
     address susdv2_deposit = 0xFCBa3E75865d2d561BE8D220616520c171F12851;
 
-    address susdv2_pool = 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD;
     address three_pool = 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7;
     address ren_pool = 0x93054188d876f558f4a66B2EF1d97d16eDf0895B;
 
@@ -54,10 +51,6 @@ contract DSTestDefiBase is DSTestApprox {
         0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f
     );
 
-    ICurveFi_4 curveSusdV2 = ICurveFi_4(
-        0xA5407eAE9Ba41422680e2e00537571bcC53efBfD
-    );
-
     uint256 startTime = block.timestamp;
 
     receive() external payable {}
@@ -79,7 +72,7 @@ contract DSTestDefiBase is DSTestApprox {
         );
     }
 
-    function _getERC20WithPath(address token, uint256 _amount, address[] memory path) virtual internal {
+    function _getERC20WithPath(uint256 _amount, address[] memory path) virtual internal {
         uint256[] memory ins = univ2.getAmountsIn(_amount, path);
         uint256 ethAmount = ins[0];
 

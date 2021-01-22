@@ -3,6 +3,10 @@ pragma solidity ^0.6.7;
 
 import "./strategy-staking-rewards-base.sol";
 
+interface MisStaking {
+    function notifyReward(uint256) external;
+}
+
 abstract contract StrategyMithFarmBase is StrategyStakingRewardsBase {
     // Token addresses
     address public mis = 0x4b4D2e899658FB59b1D518b68fe836B100ee8958;
@@ -12,7 +16,7 @@ abstract contract StrategyMithFarmBase is StrategyStakingRewardsBase {
     address public token1;
 
     // How much MIS tokens to keep?
-    uint256 public keepMIS = 0;
+    uint256 public keepMIS = 1200;
     uint256 public constant keepMISMax = 10000;
 
     // Uniswap swap paths
@@ -23,19 +27,13 @@ abstract contract StrategyMithFarmBase is StrategyStakingRewardsBase {
         address _token1,
         address _rewards,
         address _lp,
-        address _governance,
-        address _strategist,
-        address _controller,
-        address _timelock
+        address _strategist
     )
         public
         StrategyStakingRewardsBase(
             _rewards,
             _lp,
-            _governance,
-            _strategist,
-            _controller,
-            _timelock
+            _strategist
         )
     {
         token1 = _token1;
@@ -47,13 +45,6 @@ abstract contract StrategyMithFarmBase is StrategyStakingRewardsBase {
         usdt_token1_path = new address[](2);
         usdt_token1_path[0] = usdt;
         usdt_token1_path[1] = token1;
-    }
-
-    // **** Setters ****
-
-    function setKeepMIS(uint256 _keepMIS) external {
-        require(msg.sender == timelock, "!timelock");
-        keepMIS = _keepMIS;
     }
 
     // **** State Mutations ****
@@ -69,12 +60,22 @@ abstract contract StrategyMithFarmBase is StrategyStakingRewardsBase {
         IStakingRewards(rewards).getReward();
         uint256 _mis = IERC20(mis).balanceOf(address(this));
         if (_mis > 0) {
-            // 10% is locked up for future gov
+            // 12% is streamed to staking contract
             uint256 _keepMIS = _mis.mul(keepMIS).div(keepMISMax);
-            IERC20(mis).safeTransfer(
-                IController(controller).treasury(),
-                _keepMIS
-            );
+            if (stakingContract != address(0)) {
+                IERC20(mis).safeTransfer(
+                    stakingContract,
+                    _keepMIS
+                );
+                MisStaking(stakingContract).notifyReward(_keepMIS);
+            } else {
+                // If stakingContract is not set, send to treasury
+                IERC20(mis).safeTransfer(
+                    treasury,
+                    _keepMIS
+                );
+            }
+
             _swapSushiswapWithPath(mis_usdt_path, _mis.sub(_keepMIS));
         }
 
@@ -107,11 +108,11 @@ abstract contract StrategyMithFarmBase is StrategyStakingRewardsBase {
 
             // Donates DUST
             IERC20(usdt).safeTransfer(
-                IController(controller).treasury(),
+                strategist,
                 IERC20(usdt).balanceOf(address(this))
             );
             IERC20(token1).safeTransfer(
-                IController(controller).treasury(),
+                strategist,
                 IERC20(token1).balanceOf(address(this))
             );
         }

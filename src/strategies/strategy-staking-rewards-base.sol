@@ -11,13 +11,10 @@ abstract contract StrategyStakingRewardsBase is StrategyBase {
     constructor(
         address _rewards,
         address _want,
-        address _governance,
-        address _strategist,
-        address _controller,
-        address _timelock
+        address _strategist
     )
         public
-        StrategyBase(_want, _governance, _strategist, _controller, _timelock)
+        StrategyBase(_want, _strategist)
     {
         rewards = _rewards;
     }
@@ -26,7 +23,7 @@ abstract contract StrategyStakingRewardsBase is StrategyBase {
         return IStakingRewards(rewards).balanceOf(address(this));
     }
 
-    function getHarvestable() external view returns (uint256) {
+    function getHarvestable() external override view returns (uint256) {
         return IStakingRewards(rewards).earned(address(this));
     }
 

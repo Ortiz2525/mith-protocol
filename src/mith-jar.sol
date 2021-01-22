@@ -2,12 +2,12 @@
 
 pragma solidity ^0.6.7;
 
-import "./interfaces/controller.sol";
+import "./interfaces/strategy.sol";
 
 import "./lib/erc20.sol";
 import "./lib/safe-math.sol";
 
-contract PickleJar is ERC20 {
+contract MithJar is ERC20 {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
@@ -17,50 +17,25 @@ contract PickleJar is ERC20 {
     uint256 public min = 9500;
     uint256 public constant max = 10000;
 
-    address public governance;
-    address public timelock;
-    address public controller;
+    address public strategy;
 
-    constructor(address _token, address _governance, address _timelock, address _controller)
+    constructor(IStrategy _strategy)
         public
         ERC20(
-            string(abi.encodePacked("pickling ", ERC20(_token).name())),
-            string(abi.encodePacked("p", ERC20(_token).symbol()))
+            string(abi.encodePacked(ERC20(_strategy.want()).name(), "vault")),
+            string(abi.encodePacked("v", ERC20(_strategy.want()).symbol()))
         )
     {
-        _setupDecimals(ERC20(_token).decimals());
-        token = IERC20(_token);
-        governance = _governance;
-        timelock = _timelock;
-        controller = _controller;
+        _setupDecimals(ERC20(_strategy.want()).decimals());
+        token = IERC20(_strategy.want());
+        strategy = address(_strategy);
     }
 
     function balance() public view returns (uint256) {
         return
             token.balanceOf(address(this)).add(
-                IController(controller).balanceOf(address(token))
+                IStrategy(strategy).balanceOf()
             );
-    }
-
-    function setMin(uint256 _min) external {
-        require(msg.sender == governance, "!governance");
-        require(_min <= max, "numerator cannot be greater than denominator");
-        min = _min;
-    }
-
-    function setGovernance(address _governance) public {
-        require(msg.sender == governance, "!governance");
-        governance = _governance;
-    }
-
-    function setTimelock(address _timelock) public {
-        require(msg.sender == timelock, "!timelock");
-        timelock = _timelock;
-    }
-
-    function setController(address _controller) public {
-        require(msg.sender == timelock, "!timelock");
-        controller = _controller;
     }
 
     // Custom logic in here for how much the jars allows to be borrowed
@@ -71,8 +46,8 @@ contract PickleJar is ERC20 {
 
     function earn() public {
         uint256 _bal = available();
-        token.safeTransfer(controller, _bal);
-        IController(controller).earn(address(token), _bal);
+        token.safeTransfer(strategy, _bal);
+        IStrategy(strategy).deposit();
     }
 
     function depositAll() external {
@@ -98,13 +73,6 @@ contract PickleJar is ERC20 {
         withdraw(balanceOf(msg.sender));
     }
 
-    // Used to swap any borrowed reserve over the debt limit to liquidate to 'token'
-    function harvest(address reserve, uint256 amount) external {
-        require(msg.sender == controller, "!controller");
-        require(reserve != address(token), "token");
-        IERC20(reserve).safeTransfer(controller, amount);
-    }
-
     // No rebalance implementation for lower fees and faster swaps
     function withdraw(uint256 _shares) public {
         uint256 r = (balance().mul(_shares)).div(totalSupply());
@@ -114,7 +82,7 @@ contract PickleJar is ERC20 {
         uint256 b = token.balanceOf(address(this));
         if (b < r) {
             uint256 _withdraw = r.sub(b);
-            IController(controller).withdraw(address(token), _withdraw);
+            IStrategy(strategy).withdraw(_withdraw);
             uint256 _after = token.balanceOf(address(this));
             uint256 _diff = _after.sub(b);
             if (_diff < _withdraw) {

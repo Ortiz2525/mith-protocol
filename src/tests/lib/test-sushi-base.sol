@@ -11,7 +11,6 @@ import "./test-defi-base.sol";
 import "../../interfaces/usdt.sol";
 import "../../interfaces/weth.sol";
 import "../../interfaces/strategy.sol";
-import "../../interfaces/curve.sol";
 import "../../interfaces/uniswapv2.sol";
 
 contract DSTestSushiBase is DSTestDefiBase {
@@ -42,7 +41,7 @@ contract DSTestSushiBase is DSTestDefiBase {
         );
     }
 
-    function _getERC20WithPath(address token, uint256 _amount, address[] memory path) override internal {
+    function _getERC20WithPath(uint256 _amount, address[] memory path) override internal {
         uint256[] memory ins = sushiRouter.getAmountsIn(_amount, path);
         uint256 ethAmount = ins[0];
 
