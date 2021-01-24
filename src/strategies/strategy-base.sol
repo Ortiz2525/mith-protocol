@@ -15,12 +15,13 @@ abstract contract StrategyBase {
     using SafeMath for uint256;
 
     // Performance Fee addresses and staking contract address
-    address public initiator = 0x864C8ef839DD3859820BC6BcE450Aee43F938178;
+    address public initiator = 0xb919F030B334A20424e942E77d22b99dAdf15B4B;
     address public stakingContract;
-    address public treasury = 0x47bF82f8493d311a57BfeaBA9a71dEf8182112eA;
+    address public treasury = 0xdC11e3B995845a94531D45b563C053AFaddC9aDC;
 
     // Performance fees - start with 3%
     uint256 public performanceInitiatorFee = 75;
+    // 12% fee has been sent to staking pool/treasury as mis upfront, so should be divided by 8800
     uint256 public constant performanceInitiatorMax = 8800;
 
     uint256 public performanceStrategistFee = 225;
