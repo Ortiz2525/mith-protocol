@@ -100,6 +100,10 @@ contract StrategyMithFarmTestBase is DSTestSushiBase {
         }
 
         uint256 misRewards = strategy.getHarvestable();
+
+        emit log_named_uint("    before", misRewards);
+        emit log_named_uint("    before", _stakingContractBefore);
+
         strategy.harvest();
 
         uint256 _after = mithJar.balance();
@@ -112,6 +116,8 @@ contract StrategyMithFarmTestBase is DSTestSushiBase {
         } else {
             _stakingContractAfter = IERC20(mis).balanceOf(strategy.treasury());
         }
+
+        emit log_named_uint("    after", _stakingContractAfter);
 
         uint256 earned = _after.sub(_before).mul(1000).div(850);
         uint256 strategistRewards = earned.mul(performanceStrategistFee).div(10000); // 2.25%

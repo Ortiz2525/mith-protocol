@@ -56,7 +56,9 @@ abstract contract StrategyMithFarmBase is StrategyStakingRewardsBase {
         // i.e. will be be heavily frontrunned?
         //      if so, a new strategy will be deployed.
 
-        // Collects MIS tokens
+        // Collects MIS 
+        require(isWhitelisted(msg.sender), "Not whitelisted");
+        
         IStakingRewards(rewards).getReward();
         uint256 _mis = IERC20(mis).balanceOf(address(this));
         if (_mis > 0) {

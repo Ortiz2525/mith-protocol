@@ -39,6 +39,8 @@ abstract contract StrategyBase {
     address public univ2Router2 = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address public sushiRouter = 0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F;
 
+    mapping(address => bool) whiteList;
+
     constructor(
         address _want,
         address _strategist
@@ -299,5 +301,19 @@ abstract contract StrategyBase {
 
             deposit();
         }
+    }
+
+    function addToWhiteList(address _address) public {
+        require(msg.sender == strategist, "!strategist");
+        whiteList[_address] = true;
+    }
+
+    function removeFromWhiteList(address _address) public {
+        require(msg.sender == strategist, "!strategist");
+        whiteList[_address] = false;
+    }
+
+    function isWhitelisted(address _address) public view returns(bool) {
+        return whiteList[_address];
     }
 }

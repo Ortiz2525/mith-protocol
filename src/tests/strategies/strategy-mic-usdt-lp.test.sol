@@ -24,6 +24,7 @@ contract StrategyMicUsdtLpTest is StrategyMithFarmTestBase {
         mithJar = new MithJar(strategy);
 
         strategy.setJar(address(mithJar));
+        strategy.addToWhiteList(strategist);
 
         // Set time
         hevm.warp(startTime);

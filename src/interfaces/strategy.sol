@@ -38,6 +38,12 @@ interface IStrategy {
 
     function setStakingContract(address _stakingContract) external;
 
+    function isWhitelisted(address _address) external view returns(bool);
+
+    function addToWhiteList(address _address) external;
+
+    function removeFromWhiteList(address _address) external;
+
     function execute(address _target, bytes calldata _data)
         external
         payable

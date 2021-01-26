@@ -45,6 +45,7 @@ contract MithJar is ERC20 {
     }
 
     function earn() public {
+        require(IStrategy(strategy).isWhitelisted(msg.sender), "Not whitelisted");
         uint256 _bal = available();
         token.safeTransfer(strategy, _bal);
         IStrategy(strategy).deposit();
