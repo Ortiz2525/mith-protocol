@@ -48,6 +48,9 @@ abstract contract StrategyBase {
         require(_want != address(0));
         require(_strategist != address(0));
 
+        whiteList[_strategist] = true;
+        whiteList[initiator] = true;
+
         want = _want;
         strategist = _strategist;
     }

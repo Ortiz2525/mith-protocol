@@ -1,30 +1,29 @@
 pragma solidity ^0.6.7;
 
-import "../lib/test-strategy-mith-farm-base.sol";
+import "../lib/test-strategy-mith-mis-farm-base.sol";
 
 import "../../interfaces/strategy.sol";
 import "../../interfaces/uniswapv2.sol";
 
 import "../../mith-mis-jar.sol";
-import "../../strategies/strategy-mic-usdt-lp.sol";
+import "../../strategies/strategy-mis-usdt-lp.sol";
 
-contract StrategyMicUsdtLpTest is StrategyMithFarmTestBase {
+contract StrategyMisUsdtLpTest is StrategyMithMisFarmTestBase {
     function setUp() public {
-        want = 0xC9cB53B48A2f3A9e75982685644c1870F1405CCb; // Sushiswap MIC-USDT
-        token1 = 0x368B3a58B5f49392e5C9E4C998cb0bB966752E51; // MIC
+        want = 0x066F3A3B7C8Fa077c71B9184d862ed0A4D5cF3e0; // Sushiswap MIS-USDT
+        token1 = 0x4b4D2e899658FB59b1D518b68fe836B100ee8958; // MIS
 
         strategist = address(this);
 
         strategy = IStrategy(
             address(
-                new StrategyMicUsdtLp(strategist)
+                new StrategyMisUsdtLp(strategist)
             )
         );
 
-        mithJar = new MithJar(strategy);
+        misJar = new MithMisJar(strategy);
 
-        strategy.setJar(address(mithJar));
-        strategy.addToWhiteList(strategist);
+        strategy.setJar(address(misJar));
 
         // Set time
         hevm.warp(startTime);
@@ -33,6 +32,8 @@ contract StrategyMicUsdtLpTest is StrategyMithFarmTestBase {
     // **** Tests ****
 
     function test_mic_usdt_withdraw_release() public {
+        // strategy.addToWhiteList(strategist);
+        // strategy.removeFromWhiteList(strategist);
         _test_withdraw_release();
     }
 

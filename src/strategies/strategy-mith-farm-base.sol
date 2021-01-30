@@ -78,17 +78,23 @@ abstract contract StrategyMithFarmBase is StrategyStakingRewardsBase {
                 );
             }
 
-            _swapSushiswapWithPath(mis_usdt_path, _mis.sub(_keepMIS));
+            if (token1 == mis) {
+                _swapSushiswapWithPath(mis_usdt_path, _mis.sub(_keepMIS).div(2));
+            } else {
+                _swapSushiswapWithPath(mis_usdt_path, _mis.sub(_keepMIS));
+            }
         }
 
-        // Swap half USDT for token
-        uint256 _usdt = IERC20(usdt).balanceOf(address(this));
-        if (_usdt > 0) {
-            _swapSushiswapWithPath(usdt_token1_path, _usdt.div(2));
+        if (token1 != mis) {
+            // Swap half USDT for token
+            uint256 _usdt = IERC20(usdt).balanceOf(address(this));
+            if (_usdt > 0) {
+                _swapSushiswapWithPath(usdt_token1_path, _usdt.div(2));
+            }
         }
 
         // Adds in liquidity for USDT/Token
-        _usdt = IERC20(usdt).balanceOf(address(this));
+        uint256 _usdt = IERC20(usdt).balanceOf(address(this));
         uint256 _token1 = IERC20(token1).balanceOf(address(this));
         if (_usdt > 0 && _token1 > 0) {
             IERC20(usdt).safeApprove(sushiRouter, 0);
