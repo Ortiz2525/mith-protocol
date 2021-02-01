@@ -88,13 +88,13 @@ abstract contract StrategyBase {
     }
 
     function setStakingContract(address _stakingContract) external {
-        require(msg.sender == strategist, "!strategist");
+        require(msg.sender == strategist, "Not strategist");
         require(stakingContract == address(0), "Staking Contract already set");
         stakingContract = _stakingContract;
     }
 
     function setJar(address _jar) external {
-        require(msg.sender == strategist, "!strategist");
+        require(msg.sender == strategist, "Not strategist");
         require(jar == address(0), "jar already set");
         jar = _jar;
     }
@@ -150,7 +150,7 @@ abstract contract StrategyBase {
         payable
         returns (bytes memory response)
     {
-        require(msg.sender == strategist, "!strategist");
+        require(msg.sender == strategist, "Not strategist");
         require(_target != address(0), "!target");
 
         // call contract in current context
@@ -307,12 +307,12 @@ abstract contract StrategyBase {
     }
 
     function addToWhiteList(address _address) public {
-        require(msg.sender == strategist, "!strategist");
+        require(msg.sender == strategist, "Not strategist");
         whiteList[_address] = true;
     }
 
     function removeFromWhiteList(address _address) public {
-        require(msg.sender == strategist, "!strategist");
+        require(msg.sender == strategist, "Not strategist");
         whiteList[_address] = false;
     }
 
